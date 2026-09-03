@@ -21,6 +21,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #lastUpdated{font-size:11px;color:var(--muted);}
 #refreshBtn{background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;}
 #refreshBtn:disabled{opacity:.45;cursor:default;}
+#privBtn{background:#fff;color:var(--muted);border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;}
+body.privacy #privBtn{background:var(--muted);color:#fff;border-color:var(--muted);}
+/* Privacy mode: absolute ₹ figures faded to near-invisible; ratios/XIRR stay readable */
+body.privacy .money{opacity:.07;transition:opacity .2s;}
+body.privacy .money:hover{opacity:.07;}
 .card-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 @media(max-width:680px){.card-row{grid-template-columns:repeat(2,1fr);}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;}
@@ -84,6 +89,7 @@ tbody tr:hover td:first-child{background:var(--bg);}
   <h1>VRFT Portfolio Dashboard</h1>
   <div id="hdr-right">
     <span id="lastUpdated"></span>
+    <button id="privBtn" title="Hide / show ₹ amounts">◐ Private</button>
     <button id="refreshBtn">↺ Refresh</button>
   </div>
 </div>
@@ -93,9 +99,9 @@ tbody tr:hover td:first-child{background:var(--bg);}
 <div id="dash" hidden>
   <!-- Summary cards -->
   <div class="card-row">
-    <div class="card"><div class="lbl">Invested (Cost)</div><div class="val" id="cInvested">—</div></div>
-    <div class="card"><div class="lbl">Current Value</div><div class="val" id="cValue">—</div><div class="sub" id="cValueSub"></div></div>
-    <div class="card"><div class="lbl">Unrealized P&amp;L</div><div class="val" id="cPL">—</div><div class="sub" id="cPLSub"></div></div>
+    <div class="card"><div class="lbl">Invested (Cost)</div><div class="val money" id="cInvested">—</div></div>
+    <div class="card"><div class="lbl">Current Value</div><div class="val money" id="cValue">—</div><div class="sub" id="cValueSub"></div></div>
+    <div class="card"><div class="lbl">Unrealized P&amp;L</div><div class="val money" id="cPL">—</div><div class="sub money" id="cPLSub"></div></div>
     <div class="card"><div class="lbl">Active Positions</div><div class="val" id="cPos">—</div><div class="sub" id="cPosSub"></div></div>
   </div>
 
@@ -156,7 +162,7 @@ tbody tr:hover td:first-child{background:var(--bg);}
   <!-- Row 3: Portfolio vs Sensex + Stock XIRR FY TD -->
   <div class="two-col">
     <div class="panel">
-      <h2>Portfolio XIRR vs Sensex — Year by Year</h2>
+      <h2>Portfolio XIRR vs Sensex — Year by Year + Cumulative</h2>
       <div class="chart-wrap" style="height:260px;"><canvas id="benchChart"></canvas></div>
     </div>
     <div class="panel">
@@ -417,11 +423,17 @@ function parseXIRRRange(csvText) {
   if(pr){
     result.portFY=toXIRRPct(pr[4]);
     result.portCum=toXIRRPct(pr[5]);
-    const years=['FY24*','FY25','FY26','FY27 TD'];
-    const portVals=[1,2,3,4].map(c=>toXIRRPct(pr[c]));
-    const sensexVals=[0,0,0,0];
+    const years=['FY24*','FY25','FY26','FY27 TD','Cumulative'];
+    // cols B–E = yearly, col F = cumulative-to-date XIRR
+    const portVals=[1,2,3,4,5].map(c=>toXIRRPct(pr[c]));
+    const sensexVals=[0,0,0,0,null];
     const sr=sensexRow||(rows[16]||null);
-    if(sr)[1,2,3,4].forEach((c,i)=>{sensexVals[i]=toXIRRPct(sr[c]);});
+    if(sr){
+      [1,2,3,4].forEach((c,i)=>{sensexVals[i]=toXIRRPct(sr[c]);});
+      // Sensex cumulative (F61) is optional in the sheet — blank → no bar
+      const sc=(sr[5]||'').trim();
+      sensexVals[4]=sc&&sc!=='—'&&sc!=='-'?toXIRRPct(sc):null;
+    }
     result.bench={years,portVals,sensexVals};
     result.dbg.push(`Port FY TD: ${result.portFY.toFixed(1)}%, Cum: ${result.portCum.toFixed(1)}%`);
   }
@@ -583,7 +595,7 @@ const benchLabelPlugin={
         ctx.save();
         ctx.textAlign='center'; ctx.textBaseline='bottom';
         ctx.font='bold 10px -apple-system,sans-serif';
-        ctx.fillStyle=typeof ds.backgroundColor==='string'?ds.backgroundColor:'#333';
+        ctx.fillStyle=typeof ds.backgroundColor==='string'?ds.backgroundColor:(Array.isArray(ds.backgroundColor)?ds.backgroundColor[j]:'#333');
         ctx.fillText(lbl,bar.x,yPos);
         ctx.restore();
       });
@@ -596,18 +608,18 @@ function renderBenchChart(bench){
     type:'bar',
     plugins:[benchLabelPlugin],
     data:{labels:bench.years,datasets:[
-      {label:'VRFT Portfolio',data:bench.portVals.map(v=>+v.toFixed(1)),backgroundColor:'rgba(43,108,176,0.8)',borderRadius:4,borderWidth:0},
-      {label:'Sensex',data:bench.sensexVals.map(v=>+v.toFixed(1)),backgroundColor:'rgba(113,128,150,0.5)',borderRadius:4,borderWidth:0}
+      {label:'VRFT Portfolio',data:bench.portVals.map(v=>v==null?null:+v.toFixed(1)),backgroundColor:bench.years.map(y=>y==='Cumulative'?'rgba(26,54,93,0.95)':'rgba(43,108,176,0.8)'),borderRadius:4,borderWidth:0},
+      {label:'Sensex',data:bench.sensexVals.map(v=>v==null?null:+v.toFixed(1)),backgroundColor:bench.years.map(y=>y==='Cumulative'?'rgba(74,85,104,0.7)':'rgba(113,128,150,0.5)'),borderRadius:4,borderWidth:0}
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,
       layout:{padding:{top:20}},
       plugins:{
         legend:{position:'top',labels:{font:{size:10},boxWidth:12}},
-        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y>=0?'+':''}${ctx.parsed.y.toFixed(1)}%`}}
+        tooltip:{callbacks:{label:ctx=>ctx.parsed.y==null?`${ctx.dataset.label}: n/a`:`${ctx.dataset.label}: ${ctx.parsed.y>=0?'+':''}${ctx.parsed.y.toFixed(1)}%`}}
       },
       scales:{
-        x:{grid:{display:false},ticks:{font:{size:11}}},
+        x:{grid:{display:false},ticks:{font:{size:11},color:ctx=>ctx.tick&&ctx.tick.label==='Cumulative'?'#1a365d':'#4a5568',font:ctx=>({size:11,weight:ctx.tick&&ctx.tick.label==='Cumulative'?'700':'400'})}},
         y:{grid:{color:'#e2e8f0'},max:BENCH_YCAP,ticks:{font:{size:10},callback:v=>`${v}%`},title:{display:true,text:'XIRR %',font:{size:9}}}
       }
     }
@@ -624,7 +636,7 @@ function renderSummary(holdings,total,hasCMP){
     document.getElementById('cValueSub').textContent='live prices from sheet';
     const pl=total-totalCost;
     const plEl=document.getElementById('cPL');
-    plEl.textContent=fmtL(pl); plEl.className='val '+(pl>=0?'pos':'neg');
+    plEl.textContent=fmtL(pl); plEl.className='val money '+(pl>=0?'pos':'neg');
     document.getElementById('cPLSub').textContent=fmtPct(pl/totalCost*100);
   } else {
     document.getElementById('cValue').textContent='—';
@@ -652,7 +664,7 @@ function renderHoldings(holdings,total){
     const uplPctTd=hasCmp?`<span class="${s.uplPct>=0?'pos':'neg'}">${fmtPct(s.uplPct)}</span>`:`<span class="na">—</span>`;
     const warnBadge=s.weight>STOCK_CAP?' <span style="font-size:9px;color:var(--red);font-weight:700">⚠ CAP</span>':'';
     const tr=document.createElement('tr'); if(rowCls) tr.className=rowCls;
-    tr.innerHTML=`<td><strong>${s.ticker}</strong></td><td><span class="tag tag-sector">${s.sector}</span></td><td class="r">${fmtIN(s.qty)}</td><td class="r">₹${s.avgCost<1?s.avgCost.toFixed(4):fmtIN(s.avgCost)}</td><td class="r">${cmpTd}</td><td class="r">${valTd}</td><td class="r">${uplTd}</td><td class="r">${uplPctTd}</td><td class="r">${fmtXIRR(s.xirrFY)}</td><td class="r">${fmtXIRR(s.xirr)}</td><td class="r">${s.days?s.days:'—'}</td><td class="r">${s.weight.toFixed(1)}%${warnBadge}</td>`;
+    tr.innerHTML=`<td><strong>${s.ticker}</strong></td><td><span class="tag tag-sector">${s.sector}</span></td><td class="r">${fmtIN(s.qty)}</td><td class="r">₹${s.avgCost<1?s.avgCost.toFixed(4):fmtIN(s.avgCost)}</td><td class="r">${cmpTd}</td><td class="r money">${valTd}</td><td class="r money">${uplTd}</td><td class="r">${uplPctTd}</td><td class="r">${fmtXIRR(s.xirrFY)}</td><td class="r">${fmtXIRR(s.xirr)}</td><td class="r">${s.days?s.days:'—'}</td><td class="r">${s.weight.toFixed(1)}%${warnBadge}</td>`;
     tbody.appendChild(tr);
   }
   document.getElementById('footnote').hidden=!anyMissing;
@@ -1037,6 +1049,14 @@ async function load(){
   } finally {btn.disabled=false;}
 }
 document.getElementById('refreshBtn').addEventListener('click',load);
+// ── PRIVACY MODE: ?private=1 or the ◐ button fades all absolute ₹ figures ──
+(function(){
+  const q=new URLSearchParams(location.search);
+  let on=q.get('private')==='1';
+  const apply=()=>{document.body.classList.toggle('privacy',on);};
+  apply();
+  document.getElementById('privBtn').addEventListener('click',()=>{on=!on;apply();});
+})();
 load();
 </script>
 </body>
