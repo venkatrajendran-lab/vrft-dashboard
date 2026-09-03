@@ -24,8 +24,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #privBtn{background:#fff;color:var(--muted);border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;}
 body.privacy #privBtn{background:var(--muted);color:#fff;border-color:var(--muted);}
 /* Privacy mode: absolute ₹ figures faded to near-invisible; ratios/XIRR stay readable */
-body.privacy .money{opacity:.07;transition:opacity .2s;}
-body.privacy .money:hover{opacity:.07;}
+.mask{color:#cbd5e0;letter-spacing:2px;font-weight:600;user-select:none;}
 .card-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 @media(max-width:680px){.card-row{grid-template-columns:repeat(2,1fr);}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;}
@@ -205,6 +204,10 @@ const TX_URL    = `${BASE}/export?format=csv`;
 const HLD_URL   = `${BASE}/export?format=csv&gid=52367544`;
 const XIRR_URL  = `${BASE}/export?format=csv&gid=52367544&range=A45:R62`;
 const SECTOR_CAP= 35, STOCK_CAP = 20;
+// Privacy mode: when true, absolute ₹ figures are never written to the page (masked as ₹ ••••)
+let PRIVATE = new URLSearchParams(location.search).get('private')==='1';
+const MASK = '<span class="mask">₹ ••••</span>';
+const fmtM = n => PRIVATE ? MASK : fmtL(n);
 const EXCLUDED  = new Set(['ADANIPORTS','GMRAIRPORT']);
 const SEG_MAP   = {
   SHADOWFAX:'hp', YASHHV:'hp', KIRLOSENG:'hp', SUZLON:'hp',
@@ -630,13 +633,13 @@ function renderBenchChart(bench){
 function renderSummary(holdings,total,hasCMP){
   const stocks=Object.values(holdings);
   const totalCost=stocks.reduce((s,h)=>s+h.totalCost,0);
-  document.getElementById('cInvested').textContent=fmtL(totalCost);
+  document.getElementById('cInvested').innerHTML=fmtM(totalCost);
   if(hasCMP){
-    document.getElementById('cValue').textContent=fmtL(total);
-    document.getElementById('cValueSub').textContent='live prices from sheet';
+    document.getElementById('cValue').innerHTML=fmtM(total);
+    document.getElementById('cValueSub').textContent=PRIVATE?'private view':'live prices from sheet';
     const pl=total-totalCost;
     const plEl=document.getElementById('cPL');
-    plEl.textContent=fmtL(pl); plEl.className='val money '+(pl>=0?'pos':'neg');
+    plEl.innerHTML=fmtM(pl); plEl.className='val money '+(PRIVATE?'':(pl>=0?'pos':'neg'));
     document.getElementById('cPLSub').textContent=fmtPct(pl/totalCost*100);
   } else {
     document.getElementById('cValue').textContent='—';
@@ -659,12 +662,12 @@ function renderHoldings(holdings,total){
     const hasCmp=s.cmp!=null; if(!hasCmp) anyMissing=true;
     const rowCls=s.weight>STOCK_CAP?'breach-row':s.weight>STOCK_CAP*0.85?'warn-row':'';
     const cmpTd=hasCmp?`<span>₹${fmtIN(s.cmp)}</span>`:`<span class="na">—</span>`;
-    const valTd=hasCmp?fmtL(s.currentValue):`${fmtL(s.totalCost)}<sup style="font-size:9px;color:var(--muted)">*</sup>`;
-    const uplTd=hasCmp?`<span class="${s.upl>=0?'pos':'neg'}">${fmtL(s.upl)}</span>`:`<span class="na">—</span>`;
+    const valTd=PRIVATE?MASK:(hasCmp?fmtL(s.currentValue):`${fmtL(s.totalCost)}<sup style="font-size:9px;color:var(--muted)">*</sup>`);
+    const uplTd=PRIVATE?MASK:(hasCmp?`<span class="${s.upl>=0?'pos':'neg'}">${fmtL(s.upl)}</span>`:`<span class="na">—</span>`);
     const uplPctTd=hasCmp?`<span class="${s.uplPct>=0?'pos':'neg'}">${fmtPct(s.uplPct)}</span>`:`<span class="na">—</span>`;
     const warnBadge=s.weight>STOCK_CAP?' <span style="font-size:9px;color:var(--red);font-weight:700">⚠ CAP</span>':'';
     const tr=document.createElement('tr'); if(rowCls) tr.className=rowCls;
-    tr.innerHTML=`<td><strong>${s.ticker}</strong></td><td><span class="tag tag-sector">${s.sector}</span></td><td class="r">${fmtIN(s.qty)}</td><td class="r">₹${s.avgCost<1?s.avgCost.toFixed(4):fmtIN(s.avgCost)}</td><td class="r">${cmpTd}</td><td class="r money">${valTd}</td><td class="r money">${uplTd}</td><td class="r">${uplPctTd}</td><td class="r">${fmtXIRR(s.xirrFY)}</td><td class="r">${fmtXIRR(s.xirr)}</td><td class="r">${s.days?s.days:'—'}</td><td class="r">${s.weight.toFixed(1)}%${warnBadge}</td>`;
+    tr.innerHTML=`<td><strong>${s.ticker}</strong></td><td><span class="tag tag-sector">${s.sector}</span></td><td class="r">${PRIVATE?'<span class="mask">••••</span>':fmtIN(s.qty)}</td><td class="r">₹${s.avgCost<1?s.avgCost.toFixed(4):fmtIN(s.avgCost)}</td><td class="r">${cmpTd}</td><td class="r money">${valTd}</td><td class="r money">${uplTd}</td><td class="r">${uplPctTd}</td><td class="r">${fmtXIRR(s.xirrFY)}</td><td class="r">${fmtXIRR(s.xirr)}</td><td class="r">${s.days?s.days:'—'}</td><td class="r">${s.weight.toFixed(1)}%${warnBadge}</td>`;
     tbody.appendChild(tr);
   }
   document.getElementById('footnote').hidden=!anyMissing;
@@ -1025,6 +1028,7 @@ async function load(){
     const total=hasCMP?totalPortValue:Object.values(holdings).reduce((s,h)=>s+h.totalCost,0);
     const cmpHits=Object.keys(cmpMap).length,count=Object.keys(holdings).length;
 
+    window.__lastRender={holdings,total,hasCMP};
     renderSummary(holdings,total,hasCMP);
     renderHoldings(holdings,total);
     renderSectorBars(holdings,total);
@@ -1051,11 +1055,12 @@ async function load(){
 document.getElementById('refreshBtn').addEventListener('click',load);
 // ── PRIVACY MODE: ?private=1 or the ◐ button fades all absolute ₹ figures ──
 (function(){
-  const q=new URLSearchParams(location.search);
-  let on=q.get('private')==='1';
-  const apply=()=>{document.body.classList.toggle('privacy',on);};
+  const apply=()=>{document.body.classList.toggle('privacy',PRIVATE);};
   apply();
-  document.getElementById('privBtn').addEventListener('click',()=>{on=!on;apply();});
+  document.getElementById('privBtn').addEventListener('click',()=>{
+    PRIVATE=!PRIVATE; apply();
+    if(window.__lastRender){const {holdings,total,hasCMP}=window.__lastRender;renderSummary(holdings,total,hasCMP);renderHoldings(holdings,total);}
+  });
 })();
 load();
 </script>
