@@ -34,6 +34,18 @@ body.privacy #privBtn{background:var(--muted);color:#fff;border-color:var(--mute
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;}
 .panel h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px;}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.comp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+.comp-sub{font-size:11px;color:var(--muted);}
+.comp-toggle{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.comp-toggle button{background:var(--surface);color:var(--muted);border:none;border-right:1px solid var(--border);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+.comp-toggle button:last-child{border-right:none;}
+.comp-toggle button.on{background:var(--accent);color:#fff;}
+.comp-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+.comp-cell{background:var(--bg);border-radius:6px;padding:8px 10px;text-align:center;}
+.comp-cell .yr{font-size:10px;color:var(--muted);font-weight:700;}
+.comp-cell .x{font-size:15px;font-weight:800;}
+.comp-cell .d{font-size:10px;color:var(--muted);}
+@media(max-width:640px){.comp-strip{grid-template-columns:repeat(2,1fr);}}
 .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
 @media(max-width:800px){.two-col,.three-col{grid-template-columns:1fr;}}
 table{width:100%;border-collapse:collapse;}
@@ -192,6 +204,23 @@ tbody tr:hover td:first-child{background:var(--bg);}
         <th>Status</th><th>Stock</th><th>Type</th><th class="r">Qty</th><th class="r">Price ₹</th>
       </tr></thead><tbody id="pBody"></tbody></table>
     </div>
+  </div>
+
+  <!-- Power of Compounding -->
+  <div class="panel" id="compPanel">
+    <div class="comp-head">
+      <div>
+        <h2 style="margin-bottom:2px">The Power of Compounding — Growth Multiples</h2>
+        <div class="comp-sub">₹1 becomes (1 + CAGR)<sup>years</sup>. The gap between the two rates is the whole argument.</div>
+      </div>
+      <div class="comp-toggle" role="group" aria-label="CAGR pair">
+        <button data-pair="15,20" class="on">15% vs 20%</button>
+        <button data-pair="20,25">20% vs 25%</button>
+        <button data-pair="25,30">25% vs 30%</button>
+      </div>
+    </div>
+    <div class="chart-wrap" style="height:300px;"><canvas id="compChart"></canvas></div>
+    <div class="comp-strip" id="compStrip"></div>
   </div>
 </div>
 <details id="debug"><summary>▸ Debug panel</summary><pre id="rawPre"></pre></details>
@@ -1048,11 +1077,52 @@ async function load(){
     else if(cmpHits<count){const missing=Object.keys(holdings).filter(t=>!sheetLookup(cmpMap,t)).join(', ');warnBox.textContent=`⚠ CMP missing for: ${missing}`;warnBox.hidden=false;}
 
     loading.hidden=true; dash.hidden=false;
+    renderCompounding(document.querySelector('.comp-toggle button.on').dataset.pair);
   } catch(err){
     loading.hidden=true; errBox.textContent='❌ '+err.message; errBox.hidden=false;
   } finally {btn.disabled=false;}
 }
 document.getElementById('refreshBtn').addEventListener('click',load);
+// ── POWER OF COMPOUNDING (static, no sheet dependency) ───────────────────
+const COMP_YEARS=[5,10,15,20];
+const compLabelPlugin={id:'compLabels',afterDatasetsDraw(chart){
+  const {ctx}=chart;
+  chart.data.datasets.forEach((ds,i)=>{
+    const meta=chart.getDatasetMeta(i);
+    meta.data.forEach((bar,j)=>{
+      const v=ds.data[j]; if(v==null) return;
+      ctx.save(); ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.font='bold 11px -apple-system,sans-serif'; ctx.fillStyle='#2d3748';
+      ctx.fillText(v.toFixed(1)+'×',bar.x,bar.y-4); ctx.restore();
+    });
+  });
+}};
+function renderCompounding(pair){
+  const [r1,r2]=pair.split(',').map(Number);
+  const f=r=>COMP_YEARS.map(n=>+Math.pow(1+r/100,n).toFixed(1));
+  const d1=f(r1),d2=f(r2);
+  const ymax=Math.ceil(d2[3]*1.15/5)*5;
+  makeChart('compChart',{
+    type:'bar',plugins:[compLabelPlugin],
+    data:{labels:COMP_YEARS.map(n=>n+' yrs'),datasets:[
+      {label:r1+'% CAGR',data:d1,backgroundColor:'rgba(43,108,176,0.85)',borderRadius:4,borderWidth:0},
+      {label:r2+'% CAGR',data:d2,backgroundColor:'rgba(221,107,32,0.85)',borderRadius:4,borderWidth:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},
+      plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}× (₹1 → ₹${ctx.parsed.y.toFixed(1)})`}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
+        y:{grid:{color:'#e2e8f0'},max:ymax,beginAtZero:true,ticks:{font:{size:10},callback:v=>v+'×'},title:{display:true,text:'Growth multiple',font:{size:9}}}}
+    }});
+  document.getElementById('compStrip').innerHTML=COMP_YEARS.map((n,i)=>
+    `<div class="comp-cell"><div class="yr">${n} YEARS</div><div class="x">${d1[i]}× → ${d2[i]}×</div><div class="d">${r2}% gives ${(d2[i]/d1[i]).toFixed(1)}× more than ${r1}%</div></div>`).join('');
+}
+(function(){
+  const btns=[...document.querySelectorAll('.comp-toggle button')];
+  btns.forEach(b=>b.addEventListener('click',()=>{btns.forEach(x=>x.classList.toggle('on',x===b));renderCompounding(b.dataset.pair);}));
+  renderCompounding('15,20');
+})();
+
 // ── PRIVACY MODE: ?private=1 or the ◐ button fades all absolute ₹ figures ──
 (function(){
   const apply=()=>{document.body.classList.toggle('privacy',PRIVATE);};
