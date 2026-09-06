@@ -243,6 +243,16 @@ const SECTOR_CAP= 35, STOCK_CAP = 20;
 let PRIVATE = new URLSearchParams(location.search).get('private')==='1';
 const MASK = '<span class="mask">₹ ••••</span>';
 const fmtM = n => PRIVATE ? MASK : fmtL(n);
+// Private mode: stable alphabetical alias map (HINDCOPPER → "Stock F" etc.), rebuilt on every render
+let ALIAS = {};
+function buildAlias(primary,extra){
+  // holdings get contiguous letters A, B, C…; tickers that only appear in charts (e.g. NALCO alias) continue after
+  ALIAS={}; let i=0;
+  const add=t=>{t=String(t).toUpperCase(); if(!ALIAS[t]) ALIAS[t]='Stock '+String.fromCharCode(65+i++);};
+  [...new Set(primary.map(t=>String(t).toUpperCase()))].sort().forEach(add);
+  [...new Set(extra.map(t=>String(t).toUpperCase()))].sort().forEach(add);
+}
+const dn = t => PRIVATE ? (ALIAS[String(t).toUpperCase()] || 'Stock ?') : t;
 const EXCLUDED  = new Set(['ADANIPORTS','GMRAIRPORT']);
 const SEG_MAP   = {
   SHADOWFAX:'hp', YASHHV:'hp', KIRLOSENG:'hp', SUZLON:'hp',
@@ -532,7 +542,7 @@ const pieLabelPlugin = {
 function renderDonut(holdings,total){
   // Sort largest → smallest weight
   const stocks=Object.values(holdings).sort((a,b)=>(b.currentValue||b.totalCost)-(a.currentValue||a.totalCost));
-  const labels=stocks.map(s=>s.ticker);
+  const labels=stocks.map(s=>dn(s.ticker));
   const data=stocks.map(s=>+((s.currentValue||s.totalCost)/total*100).toFixed(1));
   makeChart('donutChart',{
     type:'pie',
@@ -580,7 +590,7 @@ function renderHBar(canvasId,items){
   const sorted=[...items].sort((a,b)=>b.val-a.val);
   const vals=sorted.map(d=>+d.val.toFixed(2));
   const plugin=hBarLabelPlugin('%',null);
-  makeChart(canvasId,{type:'bar',plugins:[plugin],data:{labels:sorted.map(d=>d.ticker),datasets:[{data:vals,_raw:vals,backgroundColor:sorted.map(d=>pushColor(d.val)),borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:60}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x>=0?'+':''}${ctx.parsed.x.toFixed(2)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},ticks:{font:{size:10},callback:v=>`${v>=0?'+':''}${v.toFixed(1)}%`},title:{display:true,text:'Contribution to portfolio XIRR (%)',font:{size:9}}},y:{ticks:{font:{size:10}}}}}});
+  makeChart(canvasId,{type:'bar',plugins:[plugin],data:{labels:sorted.map(d=>dn(d.ticker)),datasets:[{data:vals,_raw:vals,backgroundColor:sorted.map(d=>pushColor(d.val)),borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:60}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x>=0?'+':''}${ctx.parsed.x.toFixed(2)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},ticks:{font:{size:10},callback:v=>`${v>=0?'+':''}${v.toFixed(1)}%`},title:{display:true,text:'Contribution to portfolio XIRR (%)',font:{size:9}}},y:{ticks:{font:{size:10}}}}}});
 }
 
 // ── RENDER PROJECTED XIRR ─────────────────────────────────────────────────
@@ -588,7 +598,7 @@ function renderProjChart(proj){
   const sorted=[...proj].sort((a,b)=>b.val-a.val);
   const vals=sorted.map(d=>+d.val.toFixed(1));
   const plugin=hBarLabelPlugin('%',null);
-  makeChart('projChart',{type:'bar',plugins:[plugin],data:{labels:sorted.map(d=>d.ticker),datasets:[{data:vals,_raw:vals,backgroundColor:PALETTE.slice(0,sorted.length),borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:60}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x.toFixed(1)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},ticks:{font:{size:10},callback:v=>`${v}%`},min:0},y:{ticks:{font:{size:10}}}}}});
+  makeChart('projChart',{type:'bar',plugins:[plugin],data:{labels:sorted.map(d=>dn(d.ticker)),datasets:[{data:vals,_raw:vals,backgroundColor:PALETTE.slice(0,sorted.length),borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:60}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x.toFixed(1)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},ticks:{font:{size:10},callback:v=>`${v}%`},min:0},y:{ticks:{font:{size:10}}}}}});
 }
 
 // ── RENDER STOCK XIRR CHARTS (FY TD + Cumulative from Holdings) ───────────
@@ -603,7 +613,7 @@ function renderStockXIRRCharts(holdings){
     const cappedFY=rawFY.map(v=>Math.min(v,STOCK_XIRR_CAP));
     const plugin=hBarLabelPlugin('%',STOCK_XIRR_CAP);
     const ds={data:cappedFY,_raw:rawFY,backgroundColor:fyData.map(h=>pushColor(h.xirrFY)),borderWidth:0,borderRadius:3};
-    makeChart('stockXirrFYChart',{type:'bar',plugins:[plugin],data:{labels:fyData.map(h=>h.ticker),datasets:[ds]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:70}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset._raw[ctx.dataIndex]>=0?'+':''}${ctx.dataset._raw[ctx.dataIndex].toFixed(1)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},max:STOCK_XIRR_CAP,ticks:{font:{size:10},callback:v=>`${v}%`}},y:{ticks:{font:{size:10}}}}}});
+    makeChart('stockXirrFYChart',{type:'bar',plugins:[plugin],data:{labels:fyData.map(h=>dn(h.ticker)),datasets:[ds]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:70}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset._raw[ctx.dataIndex]>=0?'+':''}${ctx.dataset._raw[ctx.dataIndex].toFixed(1)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},max:STOCK_XIRR_CAP,ticks:{font:{size:10},callback:v=>`${v}%`}},y:{ticks:{font:{size:10}}}}}});
   }
 
   // Cumulative XIRR
@@ -613,7 +623,7 @@ function renderStockXIRRCharts(holdings){
     const cappedCum=rawCum.map(v=>Math.min(v,STOCK_XIRR_CAP));
     const plugin=hBarLabelPlugin('%',STOCK_XIRR_CAP);
     const ds={data:cappedCum,_raw:rawCum,backgroundColor:cumData.map(h=>pushColor(h.xirr)),borderWidth:0,borderRadius:3};
-    makeChart('stockXirrCumChart',{type:'bar',plugins:[plugin],data:{labels:cumData.map(h=>h.ticker),datasets:[ds]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:70}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset._raw[ctx.dataIndex]>=0?'+':''}${ctx.dataset._raw[ctx.dataIndex].toFixed(1)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},max:STOCK_XIRR_CAP,ticks:{font:{size:10},callback:v=>`${v}%`}},y:{ticks:{font:{size:10}}}}}});
+    makeChart('stockXirrCumChart',{type:'bar',plugins:[plugin],data:{labels:cumData.map(h=>dn(h.ticker)),datasets:[ds]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:70}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset._raw[ctx.dataIndex]>=0?'+':''}${ctx.dataset._raw[ctx.dataIndex].toFixed(1)}%`}}},scales:{x:{grid:{color:'#e2e8f0'},max:STOCK_XIRR_CAP,ticks:{font:{size:10},callback:v=>`${v}%`}},y:{ticks:{font:{size:10}}}}}});
   }
 }
 
@@ -696,13 +706,13 @@ function renderHoldings(holdings,total){
   for(const s of stocks){
     const hasCmp=s.cmp!=null; if(!hasCmp) anyMissing=true;
     const rowCls=s.weight>STOCK_CAP?'breach-row':s.weight>STOCK_CAP*0.85?'warn-row':'';
-    const cmpTd=hasCmp?`<span>₹${fmtIN(s.cmp)}</span>`:`<span class="na">—</span>`;
+    const cmpTd=PRIVATE?MASK:(hasCmp?`<span>₹${fmtIN(s.cmp)}</span>`:`<span class="na">—</span>`);
     const valTd=PRIVATE?MASK:(hasCmp?fmtL(s.currentValue):`${fmtL(s.totalCost)}<sup style="font-size:9px;color:var(--muted)">*</sup>`);
     const uplTd=PRIVATE?MASK:(hasCmp?`<span class="${s.upl>=0?'pos':'neg'}">${fmtL(s.upl)}</span>`:`<span class="na">—</span>`);
     const uplPctTd=hasCmp?`<span class="${s.uplPct>=0?'pos':'neg'}">${fmtPct(s.uplPct)}</span>`:`<span class="na">—</span>`;
     const warnBadge=s.weight>STOCK_CAP?' <span style="font-size:9px;color:var(--red);font-weight:700">⚠ CAP</span>':'';
     const tr=document.createElement('tr'); if(rowCls) tr.className=rowCls;
-    tr.innerHTML=`<td><strong>${s.ticker}</strong></td><td><span class="tag tag-sector">${s.sector}</span></td><td class="r">${PRIVATE?'<span class="mask">••••</span>':fmtIN(s.qty)}</td><td class="r">₹${s.avgCost<1?s.avgCost.toFixed(4):fmtIN(s.avgCost)}</td><td class="r">${cmpTd}</td><td class="r money">${valTd}</td><td class="r money">${uplTd}</td><td class="r">${uplPctTd}</td><td class="r">${fmtXIRR(s.xirrFY)}</td><td class="r">${fmtXIRR(s.xirr)}</td><td class="r">${s.days?s.days:'—'}</td><td class="r">${s.weight.toFixed(1)}%${warnBadge}</td>`;
+    tr.innerHTML=`<td><strong>${dn(s.ticker)}</strong></td><td><span class="tag tag-sector">${s.sector}</span></td><td class="r">${PRIVATE?'<span class="mask">••••</span>':fmtIN(s.qty)}</td><td class="r">${PRIVATE?MASK:'₹'+(s.avgCost<1?s.avgCost.toFixed(4):fmtIN(s.avgCost))}</td><td class="r">${cmpTd}</td><td class="r money">${valTd}</td><td class="r money">${uplTd}</td><td class="r">${uplPctTd}</td><td class="r">${fmtXIRR(s.xirrFY)}</td><td class="r">${fmtXIRR(s.xirr)}</td><td class="r">${s.days?s.days:'—'}</td><td class="r">${s.weight.toFixed(1)}%${warnBadge}</td>`;
     tbody.appendChild(tr);
   }
   document.getElementById('footnote').hidden=!anyMissing;
@@ -734,7 +744,7 @@ function renderPending(pending){
     const tagCls=t.status==='INSTRUCTED'?'tag-instructed':'tag-planned';
     const typCls=t.type==='BUY'?'buy':'sell';
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><span class="tag ${tagCls}">${t.status}</span></td><td><strong>${t.ticker}</strong></td><td class="${typCls}">${t.type.charAt(0)+t.type.slice(1).toLowerCase()}</td><td class="r">${t.qty?fmtIN(t.qty):'—'}</td><td class="r">${t.price?'₹'+fmtIN(t.price):'—'}</td>`;
+    tr.innerHTML=`<td><span class="tag ${tagCls}">${t.status}</span></td><td><strong>${dn(t.ticker)}</strong></td><td class="${typCls}">${t.type.charAt(0)+t.type.slice(1).toLowerCase()}</td><td class="r">${t.qty?fmtIN(t.qty):'—'}</td><td class="r">${t.price?'₹'+fmtIN(t.price):'—'}</td>`;
     tbody.appendChild(tr);
   }
 }
@@ -854,7 +864,7 @@ function renderSegmentXIRR(holdings) {
       out += `<rect x="0" y="${cy}" width="${W}" height="${STOCK_H}" fill="${row.seg.color}" fill-opacity="0.025"/>`;
 
       // Ticker — centred in the centre column
-      out += `<text x="${xNegZero + TICKER_W / 2}" y="${midY + 4}" text-anchor="middle" font-size="10" font-weight="600" fill="#1a202c">${row.ticker}</text>`;
+      out += `<text x="${xNegZero + TICKER_W / 2}" y="${midY + 4}" text-anchor="middle" font-size="10" font-weight="600" fill="#1a202c">${dn(row.ticker)}</text>`;
 
       if (row.xirr >= 0) {
         // ── Positive bar: right from xPosZero ──
@@ -1013,6 +1023,26 @@ function renderSegBarChart() {
   });
 }
 
+// ── RENDER EVERYTHING FROM CACHED DATA (also used by the Private toggle) ──
+function renderAll({holdings,total,hasCMP,pending,xirrData,missing}){
+  buildAlias(Object.keys(holdings),[...pending.map(t=>t.ticker),...xirrData.fyPull.map(d=>d.ticker),...xirrData.cumPull.map(d=>d.ticker),...xirrData.proj.map(d=>d.ticker)]);
+  renderSummary(holdings,total,hasCMP);
+  renderHoldings(holdings,total);
+  renderSectorBars(holdings,total);
+  renderPending(pending);
+  renderDonut(holdings,total);
+  if(xirrData.fyPull.length) renderHBar('fyPushChart',xirrData.fyPull);
+  if(xirrData.cumPull.length) renderHBar('cumPushChart',xirrData.cumPull);
+  if(xirrData.proj.length) renderProjChart(xirrData.proj);
+  if(xirrData.bench) renderBenchChart(xirrData.bench);
+  renderStockXIRRCharts(holdings);
+  renderSegmentXIRR(holdings);
+  const warnBox=document.getElementById('warnBox');
+  if(!hasCMP){warnBox.textContent='⚠ Live prices unavailable — showing cost basis.';warnBox.hidden=false;}
+  else if(missing.length){warnBox.textContent=`⚠ CMP missing for: ${missing.map(dn).join(', ')}`;warnBox.hidden=false;}
+  else warnBox.hidden=true;
+}
+
 // ── MAIN LOAD ─────────────────────────────────────────────────────────────
 async function load(){
   const btn=document.getElementById('refreshBtn'),loading=document.getElementById('loading');
@@ -1063,24 +1093,12 @@ async function load(){
     const total=hasCMP?totalPortValue:Object.values(holdings).reduce((s,h)=>s+h.totalCost,0);
     const cmpHits=Object.keys(cmpMap).length,count=Object.keys(holdings).length;
 
-    window.__lastRender={holdings,total,hasCMP};
-    renderSummary(holdings,total,hasCMP);
-    renderHoldings(holdings,total);
-    renderSectorBars(holdings,total);
-    renderPending(pending);
-    renderDonut(holdings,total);
-    if(xirrData.fyPull.length) renderHBar('fyPushChart',xirrData.fyPull);
-    if(xirrData.cumPull.length) renderHBar('cumPushChart',xirrData.cumPull);
-    if(xirrData.proj.length) renderProjChart(xirrData.proj);
-    if(xirrData.bench) renderBenchChart(xirrData.bench);
-    renderStockXIRRCharts(holdings);
-    renderSegmentXIRR(holdings);
+    const missing=hasCMP&&cmpHits<count?Object.keys(holdings).filter(t=>!sheetLookup(cmpMap,t)):[];
+    window.__lastRender={holdings,total,hasCMP,pending,xirrData,missing};
+    renderAll(window.__lastRender);
 
     const now=new Date();
     document.getElementById('lastUpdated').textContent='Updated '+now.toLocaleDateString('en-IN',{day:'numeric',month:'short'})+' · '+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-
-    if(!hasCMP){warnBox.textContent='⚠ Live prices unavailable — showing cost basis.';warnBox.hidden=false;}
-    else if(cmpHits<count){const missing=Object.keys(holdings).filter(t=>!sheetLookup(cmpMap,t)).join(', ');warnBox.textContent=`⚠ CMP missing for: ${missing}`;warnBox.hidden=false;}
 
     loading.hidden=true; dash.hidden=false;
     renderCompounding(document.querySelector('.comp-toggle button.on').dataset.pair);
@@ -1135,7 +1153,7 @@ function renderCompounding(pair){
   apply();
   document.getElementById('privBtn').addEventListener('click',()=>{
     PRIVATE=!PRIVATE; apply();
-    if(window.__lastRender){const {holdings,total,hasCMP}=window.__lastRender;renderSummary(holdings,total,hasCMP);renderHoldings(holdings,total);}
+    if(window.__lastRender) renderAll(window.__lastRender);
   });
 })();
 load();
