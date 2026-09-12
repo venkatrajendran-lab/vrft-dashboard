@@ -824,7 +824,7 @@ function renderSegmentXIRR(holdings) {
   let H = PAD_T + PAD_B;
   allRows.forEach(r => { H += r.type === 'hdr' ? HEADER_H : STOCK_H; });
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">`;
+  let out = `<svg id="segChart" xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">`;
 
   // ── Gridlines ─────────────────────────────────────────────────────────────
   // Positive side
