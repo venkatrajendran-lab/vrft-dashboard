@@ -15,7 +15,8 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;padding:16px;min-height:100vh;}
-#hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+#topbar{position:sticky;top:0;z-index:50;background:var(--bg);padding-top:16px;margin:-16px -16px 0;padding-left:16px;padding-right:16px;box-shadow:0 6px 12px -8px rgba(0,0,0,.18);}
+#hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
 #hdr h1{font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.15;}
 .h1-exp{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px;}
 .h1-sub{font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
@@ -27,7 +28,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 body.privacy #privBtn{background:var(--muted);color:#fff;border-color:var(--muted);}
 /* Privacy mode: absolute ₹ figures faded to near-invisible; ratios/XIRR stay readable */
 .mask{color:#cbd5e0;letter-spacing:2px;font-weight:600;user-select:none;}
-.card-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.card-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;padding-bottom:2px;}
+#dash{padding-top:14px;}
 @media(max-width:680px){.card-row{grid-template-columns:repeat(2,1fr);}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;}
 .card .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;}
@@ -99,6 +101,7 @@ tbody tr:hover td:first-child{background:var(--bg);}
 </style>
 </head>
 <body>
+<div id="topbar">
 <div id="hdr">
   <div>
     <h1>MARCs <span class="h1-exp">Multi Agent Research and Compounding System</span></h1>
@@ -110,17 +113,18 @@ tbody tr:hover td:first-child{background:var(--bg);}
     <button id="refreshBtn">↺ Refresh</button>
   </div>
 </div>
-<div id="errBox" hidden></div>
-<div id="warnBox" hidden></div>
-<div id="loading"><span class="spin"></span>Fetching live portfolio data…</div>
-<div id="dash" hidden>
-  <!-- Summary cards -->
-  <div class="card-row">
+  <!-- Summary cards (stationary with the header) -->
+  <div class="card-row" id="cardRow" hidden>
     <div class="card"><div class="lbl">Invested (Cost)</div><div class="val money" id="cInvested">—</div></div>
     <div class="card"><div class="lbl">Current Value</div><div class="val money" id="cValue">—</div><div class="sub" id="cValueSub"></div></div>
     <div class="card"><div class="lbl">Unrealized P&amp;L</div><div class="val money" id="cPL">—</div><div class="sub money" id="cPLSub"></div></div>
     <div class="card"><div class="lbl">Active Positions</div><div class="val" id="cPos">—</div><div class="sub" id="cPosSub"></div></div>
   </div>
+</div>
+<div id="errBox" hidden></div>
+<div id="warnBox" hidden></div>
+<div id="loading"><span class="spin"></span>Fetching live portfolio data…</div>
+<div id="dash" hidden>
 
   <!-- Holdings table -->
   <div class="panel">
@@ -1047,7 +1051,7 @@ function renderAll({holdings,total,hasCMP,pending,xirrData,missing}){
 async function load(){
   const btn=document.getElementById('refreshBtn'),loading=document.getElementById('loading');
   const dash=document.getElementById('dash'),errBox=document.getElementById('errBox'),warnBox=document.getElementById('warnBox');
-  btn.disabled=true; loading.hidden=false; dash.hidden=true; errBox.hidden=true; warnBox.hidden=true;
+  btn.disabled=true; loading.hidden=false; dash.hidden=true; document.getElementById('cardRow').hidden=true; errBox.hidden=true; warnBox.hidden=true;
 
   if(location.protocol==='file:'){
     loading.hidden=true;
@@ -1100,7 +1104,7 @@ async function load(){
     const now=new Date();
     document.getElementById('lastUpdated').textContent='Updated '+now.toLocaleDateString('en-IN',{day:'numeric',month:'short'})+' · '+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
 
-    loading.hidden=true; dash.hidden=false;
+    loading.hidden=true; dash.hidden=false; document.getElementById('cardRow').hidden=false;
     renderCompounding(document.querySelector('.comp-toggle button.on').dataset.pair);
   } catch(err){
     loading.hidden=true; errBox.textContent='❌ '+err.message; errBox.hidden=false;
