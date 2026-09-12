@@ -14,8 +14,10 @@
   --amber:#b7791f; --amber-bg:#fffff0; --radius:8px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;padding:16px;min-height:100vh;}
-#topbar{position:sticky;top:0;z-index:50;background:var(--bg);padding-top:16px;margin:-16px -16px 0;padding-left:16px;padding-right:16px;box-shadow:0 6px 12px -8px rgba(0,0,0,.18);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;padding:0;margin:0;min-height:100vh;}
+#main{padding:0 16px 16px;}
+#topbar{position:sticky;top:0;z-index:50;background:var(--bg);padding:16px 16px 0;width:100%;box-sizing:border-box;overflow:hidden;box-shadow:0 6px 12px -8px rgba(0,0,0,.18);}
+#hdr-right{flex-shrink:0;}
 #hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
 #hdr h1{font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.15;}
 .h1-exp{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px;}
@@ -28,7 +30,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 body.privacy #privBtn{background:var(--muted);color:#fff;border-color:var(--muted);}
 /* Privacy mode: absolute ₹ figures faded to near-invisible; ratios/XIRR stay readable */
 .mask{color:#cbd5e0;letter-spacing:2px;font-weight:600;user-select:none;}
-.card-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;padding-bottom:2px;}
+.card-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;padding-bottom:2px;}
+.card{min-width:0;overflow:hidden;}
 #dash{padding-top:14px;}
 @media(max-width:680px){.card-row{grid-template-columns:repeat(2,1fr);}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;}
@@ -121,6 +124,7 @@ tbody tr:hover td:first-child{background:var(--bg);}
     <div class="card"><div class="lbl">Active Positions</div><div class="val" id="cPos">—</div><div class="sub" id="cPosSub"></div></div>
   </div>
 </div>
+<div id="main">
 <div id="errBox" hidden></div>
 <div id="warnBox" hidden></div>
 <div id="loading"><span class="spin"></span>Fetching live portfolio data…</div>
@@ -234,6 +238,7 @@ tbody tr:hover td:first-child{background:var(--bg);}
   </div>
 </div>
 <details id="debug"><summary>▸ Debug panel</summary><pre id="rawPre"></pre></details>
+</div>
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
