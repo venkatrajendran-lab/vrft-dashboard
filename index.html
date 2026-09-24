@@ -238,7 +238,6 @@ tbody tr:hover td:first-child{background:var(--bg);}
       </div>
     </div>
     <div class="chart-wrap" style="height:300px;"><canvas id="compChart"></canvas></div>
-    <div class="comp-strip" id="compStrip"></div>
   </div>
 </div>
 <details id="debug"><summary>▸ Debug panel</summary><pre id="rawPre"></pre></details>
@@ -1191,8 +1190,6 @@ function renderCompounding(pair){
       scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
         y:{grid:{color:'#e2e8f0'},max:ymax,beginAtZero:true,ticks:{font:{size:10},callback:v=>v+'×'},title:{display:true,text:'Growth multiple',font:{size:9}}}}
     }});
-  document.getElementById('compStrip').innerHTML=COMP_YEARS.map((n,i)=>
-    `<div class="comp-cell"><div class="yr">${n} YEARS</div><div class="x">${d1[i]}× → ${d2[i]}×</div><div class="d">${r2}% gives ${(d2[i]/d1[i]).toFixed(1)}× more than ${r1}%</div></div>`).join('');
 }
 (function(){
   const btns=[...document.querySelectorAll('.comp-toggle button')];
